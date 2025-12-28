@@ -1,6 +1,8 @@
 import streamlit as st
 import requests
 import uuid
+import os
+from PIL import Image
 
 # API configuration
 API_URL = "http://localhost:8000"

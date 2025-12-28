@@ -97,11 +97,27 @@ uv run streamlit run app/streamlit_app.py
 ```
 UI will open automatically in your browser at: `http://localhost:8501`
 
-### Option 2: Run with Docker (API only)
+### Option 2: Run with Docker
+
+**Build the images:**
 ```bash
-docker build -t book-service .
-docker run -p 8000:8000 book-service
+# Backend
+docker build -t book-service-api .
+
+# Frontend
+docker build -t book-service-frontend -f Dockerfile.streamlit .
 ```
+
+**Run the containers:**
+```bash
+# Terminal 1 - Backend
+docker run -p 8000:8000 book-service-api
+
+# Terminal 2 - Frontend
+docker run -p 8501:8501 book-service-frontend
+```
+
+The application will be available at `http://localhost:8501`
 
 Note: Streamlit runs separately. After starting Docker, run Streamlit locally in a second terminal.
 
