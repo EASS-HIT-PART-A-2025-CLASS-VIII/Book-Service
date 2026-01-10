@@ -1,39 +1,25 @@
-from typing import Dict, List, Optional
+from typing import List, Optional
+from sqlalchemy.orm import Session
+from sqlalchemy import update
 from app.models import Book, BookCreate
-from app.initial_books import INITIAL_BOOKS
+from app.db_models import BookDB
 
 
 class BookRepository:
     """
-    In-memory storage for books.
+    Database storage for books using PostgreSQL.
     
     This repository provides CRUD operations for book management
-    using a simple dictionary-based in-memory storage.
+    using SQLAlchemy ORM.
     """
     
-    def __init__(self) -> None:
-        """Initialize the repository with pre-loaded books."""
-        self._books: Dict[int, Book] = {}
-        self._next_id: int = 1
-        
-        # Load initial books
-        for book in INITIAL_BOOKS:
-            self._books[book.id] = book
-            if book.id >= self._next_id:
-                self._next_id = book.id + 1
+    def __init__(self, db: Session):
+        """Initialize the repository with database session."""
+        self.db = db
     
     def create(self, book_data: BookCreate) -> Book:
-        """
-        Create a new book.
-        
-        Args:
-            book_data: Book data without ID
-            
-        Returns:
-            Book: The created book with assigned ID
-        """
-        book = Book(
-            id=self._next_id,
+        """Create a new book"""
+        db_book = BookDB(
             title=book_data.title,
             author=book_data.author,
             genre=book_data.genre,
@@ -42,11 +28,16 @@ class BookRepository:
             average_rating=0.0,
             total_ratings=0,
             user_ratings={},
-            favorites=[]
+            favorites=[],
+            borrowed_by=[]
         )
-        self._books[self._next_id] = book
-        self._next_id += 1
-        return book
+        # Don't set ID - let database auto-generate it
+        
+        self.db.add(db_book)
+        self.db.commit()
+        self.db.refresh(db_book)
+        
+        return self._to_book_model(db_book)
     
     def get_all(self) -> List[Book]:
         """
@@ -55,7 +46,8 @@ class BookRepository:
         Returns:
             List[Book]: List of all books in the repository
         """
-        return list(self._books.values())
+        db_books = self.db.query(BookDB).all()
+        return [self._to_pydantic(db_book) for db_book in db_books]
     
     def get_by_id(self, book_id: int) -> Optional[Book]:
         """
@@ -67,7 +59,10 @@ class BookRepository:
         Returns:
             Optional[Book]: The book if found, None otherwise
         """
-        return self._books.get(book_id)
+        db_book = self.db.query(BookDB).filter(BookDB.id == book_id).first()
+        if not db_book:
+            return None
+        return self._to_pydantic(db_book)
     
     def update(self, book_id: int, book_data: BookCreate) -> Optional[Book]:
         """
@@ -80,24 +75,20 @@ class BookRepository:
         Returns:
             Optional[Book]: The updated book if found, None otherwise
         """
-        if book_id not in self._books:
+        db_book = self.db.query(BookDB).filter(BookDB.id == book_id).first()
+        if not db_book:
             return None
         
-        old_book = self._books[book_id]
-        book = Book(
-            id=book_id,
-            title=book_data.title,
-            author=book_data.author,
-            genre=book_data.genre,
-            description=book_data.description,
-            image_url=book_data.image_url,
-            average_rating=old_book.average_rating,
-            total_ratings=old_book.total_ratings,
-            user_ratings=old_book.user_ratings,
-            favorites=old_book.favorites
-        )
-        self._books[book_id] = book
-        return book
+        db_book.title = book_data.title
+        db_book.author = book_data.author
+        db_book.genre = book_data.genre
+        db_book.description = book_data.description
+        db_book.image_url = book_data.image_url
+        
+        self.db.commit()
+        self.db.refresh(db_book)
+        
+        return self._to_pydantic(db_book)
     
     def delete(self, book_id: int) -> bool:
         """
@@ -109,10 +100,13 @@ class BookRepository:
         Returns:
             bool: True if book was deleted, False if not found
         """
-        if book_id in self._books:
-            del self._books[book_id]
-            return True
-        return False
+        db_book = self.db.query(BookDB).filter(BookDB.id == book_id).first()
+        if not db_book:
+            return False
+        
+        self.db.delete(db_book)
+        self.db.commit()
+        return True
     
     def rate_book(self, book_id: int, user_id: str, rating: float) -> Optional[Book]:
         """
@@ -126,19 +120,37 @@ class BookRepository:
         Returns:
             Optional[Book]: The updated book if found, None otherwise
         """
-        book = self._books.get(book_id)
-        if not book:
+        db_book = self.db.query(BookDB).filter(BookDB.id == book_id).first()
+        if not db_book:
             return None
         
-        # Update user rating
-        book.user_ratings[user_id] = rating
+        # Update user rating - create new dict to force update
+        user_ratings = dict(db_book.user_ratings) if db_book.user_ratings else {}
+        user_ratings[user_id] = rating
         
         # Recalculate average
-        if book.user_ratings:
-            book.average_rating = sum(book.user_ratings.values()) / len(book.user_ratings)
-            book.total_ratings = len(book.user_ratings)
+        if user_ratings:
+            average_rating = sum(user_ratings.values()) / len(user_ratings)
+            total_ratings = len(user_ratings)
+        else:
+            average_rating = 0.0
+            total_ratings = 0
         
-        return book
+        # Use update statement to force JSON update
+        self.db.execute(
+            update(BookDB)
+            .where(BookDB.id == book_id)
+            .values(
+                user_ratings=user_ratings,
+                average_rating=average_rating,
+                total_ratings=total_ratings
+            )
+        )
+        
+        self.db.commit()
+        self.db.refresh(db_book)
+        
+        return self._to_pydantic(db_book)
     
     def toggle_favorite(self, book_id: int, user_id: str) -> Optional[Book]:
         """
@@ -151,13 +163,75 @@ class BookRepository:
         Returns:
             Optional[Book]: The updated book if found, None otherwise
         """
-        book = self._books.get(book_id)
-        if not book:
+        db_book = self.db.query(BookDB).filter(BookDB.id == book_id).first()
+        if not db_book:
             return None
         
-        if user_id in book.favorites:
-            book.favorites.remove(user_id)
+        # Create new list to force update
+        favorites = list(db_book.favorites) if db_book.favorites else []
+        if user_id in favorites:
+            favorites.remove(user_id)
         else:
-            book.favorites.append(user_id)
+            favorites.append(user_id)
         
-        return book
+        # Use update statement to force JSON update
+        self.db.execute(
+            update(BookDB)
+            .where(BookDB.id == book_id)
+            .values(favorites=favorites)
+        )
+        
+        self.db.commit()
+        self.db.refresh(db_book)
+        
+        return self._to_pydantic(db_book)
+    
+    def toggle_borrow(self, book_id: int, user_id: str) -> Optional[Book]:
+        """
+        Toggle borrow status for a book (add/remove from cart).
+        
+        Args:
+            book_id: The ID of the book
+            user_id: The user's ID
+            
+        Returns:
+            Optional[Book]: The updated book if found, None otherwise
+        """
+        db_book = self.db.query(BookDB).filter(BookDB.id == book_id).first()
+        if not db_book:
+            return None
+        
+        # Create new list to force update
+        borrowed_by = list(db_book.borrowed_by) if db_book.borrowed_by else []
+        if user_id in borrowed_by:
+            borrowed_by.remove(user_id)
+        else:
+            borrowed_by.append(user_id)
+        
+        # Use update statement to force JSON update
+        self.db.execute(
+            update(BookDB)
+            .where(BookDB.id == book_id)
+            .values(borrowed_by=borrowed_by)
+        )
+        
+        self.db.commit()
+        self.db.refresh(db_book)
+        
+        return self._to_pydantic(db_book)
+    
+    def _to_pydantic(self, db_book: BookDB) -> Book:
+        """Convert SQLAlchemy model to Pydantic model"""
+        return Book(
+            id=db_book.id,
+            title=db_book.title,
+            author=db_book.author,
+            genre=db_book.genre,
+            description=db_book.description,
+            image_url=db_book.image_url,
+            average_rating=db_book.average_rating,
+            total_ratings=db_book.total_ratings,
+            user_ratings=db_book.user_ratings or {},
+            favorites=db_book.favorites or [],
+            borrowed_by=db_book.borrowed_by or []
+        )

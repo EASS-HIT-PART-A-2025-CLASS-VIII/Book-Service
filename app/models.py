@@ -25,3 +25,4 @@ class Book(BookBase):
     total_ratings: int = 0
     user_ratings: Dict[str, float] = {}  # {user_id: rating}
     favorites: List[str] = []  # [user_id1, user_id2, ...]
+    borrowed_by: List[str] = []
