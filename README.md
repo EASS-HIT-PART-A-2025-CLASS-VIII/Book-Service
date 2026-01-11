@@ -4,7 +4,7 @@ A modern, scalable book management system with FastAPI backend, Streamlit fronte
 
 ---
 
-## 🌟 Features
+# 🌟 Features
 
 ### Backend (FastAPI)
 - ✅ RESTful API for book management
@@ -16,6 +16,10 @@ A modern, scalable book management system with FastAPI backend, Streamlit fronte
 - ✅ Redis caching for performance
 - ✅ Background task processing with Celery
 - ✅ Weekly recommendations system (auto-updated)
+- ✅ JWT Authentication - Secure token-based auth with bcrypt password hashing
+- ✅ Role-Based Access Control - Admin and user roles
+- ✅ LLM-Powered Recommendations - Personalized suggestions using Pydantic AI + OpenAI GPT-4
+- ✅ Async Refresh Script - Bounded concurrency with Redis idempotency
 - ✅ Input validation with Pydantic
 - ✅ Interactive API documentation (Swagger UI)
 - ✅ CORS middleware
@@ -28,20 +32,27 @@ A modern, scalable book management system with FastAPI backend, Streamlit fronte
 - ✅ Search books by title or author
 - ✅ Filter by genre (Fiction, Fantasy, Romance, Thriller, etc.)
 - ✅ View modes: All Books, My Favorites, Top Rated, Weekly Top
+- ✅ AI Recommendations - Personalized book suggestions based on your preferences
 - ✅ User rating system (slider 0-10)
 - ✅ Add/remove favorites with heart button (❤️)
 - ✅ Shopping cart functionality (🛒)
 - ✅ Detailed book view page
 - ✅ About Us page
-- ✅ **NEW:** Weekly Top Recommendations (cached in Redis)
+- ✅ Weekly Top Recommendations (cached in Redis)
 - ✅ Real-time updates
 
 ### Microservices Architecture
-- ✅ **PostgreSQL Database** - Persistent data storage
-- ✅ **Redis Cache** - Fast data retrieval and task queue
-- ✅ **Backend API** - FastAPI application
-- ✅ **Celery Worker** - Background task processing
-- ✅ **Docker Compose** - Orchestrates all services
+- ✅ PostgreSQL Database - Persistent data storage with user authentication tables
+- ✅ Redis Cache - Fast data retrieval, task queue, and idempotency tracking
+- ✅ Backend API - FastAPI application with JWT auth and LLM integration
+- ✅ Celery Worker - Background task processing for recommendations
+- ✅ Docker Compose - Orchestrates all services
+
+### Testing & Quality
+- ✅ 22+ pytest tests - Comprehensive test coverage
+- ✅ API tests - All CRUD, auth, and async endpoints covered
+- ✅ Auth tests - JWT token generation, password hashing, role-based access
+- ✅ Async tests - Refresh script with concurrency and idempotency
 
 ---
 
@@ -195,14 +206,14 @@ Once the API is running, visit:
 | POST | `/books/{id}/borrow` | Add/remove from cart |
 | GET | `/books/cart/{user_id}` | Get user's cart |
 
-#### Recommendations (NEW!)
+#### Recommendations 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/recommendations/weekly` | Get top 5 books (cached) |
 | POST | `/recommendations/refresh` | Manually trigger refresh |
 | GET | `/tasks/{task_id}` | Check background task status |
 
-#### Background Tasks (NEW!)
+#### Background Tasks 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/notifications/test` | Send test notification |
@@ -226,6 +237,7 @@ Once the API is running, visit:
 - 🏆 **Recommended** - Top rated books
 - ❤️ **Favorites** - Your favorited books
 - 🌟 **Weekly Top** - Auto-updated top 5 (from cache!)
+- 🎯 **AI Recommendations** - Personalized book suggestions powered by LLM
 - ℹ️ **About Us** - Information page
 
 ### Book Details View
@@ -239,12 +251,20 @@ Once the API is running, visit:
 - Remove books from cart
 - Complete order button
 
-### Weekly Top Recommendations ⭐ NEW!
+### Weekly Top Recommendations ⭐
 - Shows top 5 highest-rated books
 - **Cached in Redis** for speed
 - Auto-updates every 24 hours via background worker
 - Manual refresh button available
 - Shows data source (cache vs database)
+
+### AI-Powered Personal Recommendations 🎯
+- **Personalized suggestions** based on your preferences
+- Powered by **Pydantic AI + OpenAI GPT-4**
+- Input your favorite genres and get 3 tailored book recommendations
+- **Intelligent matching** using LLM understanding
+- Graceful fallback to genre-based recommendations if API key is unavailable
+- Results include book title, author, genre, and why it matches your taste
 
 ---
 
@@ -326,19 +346,6 @@ uv run pytest tests/test_api.py
 ## 🤖 AI Assistance
 
 This project was developed with extensive assistance from **Claude (Anthropic AI)**.
-
-### AI Usage:
-- ✅ Architecture design and microservices setup
-- ✅ Docker Compose configuration
-- ✅ FastAPI endpoint implementation
-- ✅ SQLAlchemy models and database schema
-- ✅ Celery worker setup and task definitions
-- ✅ Redis caching strategy
-- ✅ Streamlit UI design and implementation
-- ✅ Debugging and troubleshooting
-- ✅ Code organization and best practices
-- ✅ Documentation writing
-
 All AI-generated code was reviewed, tested, and verified locally before integration.
 
 ---
@@ -412,23 +419,6 @@ Notification sent in background
 User continues using app (no waiting!)
 ```
 
----
-
-## 🚧 Future Enhancements (Roadmap)
-
-### Planned Features:
-- [ ] JWT Authentication & user accounts
-- [ ] Async refresh script with bounded concurrency
-- [ ] LLM-powered book recommendations (Pydantic AI)
-- [ ] Email notifications for new recommendations
-- [ ] CSV/PDF export functionality
-- [ ] Advanced search with filters
-- [ ] Unit & integration tests
-- [ ] CI/CD pipeline
-- [ ] Production deployment guide
-
----
-
 ## 📝 Environment Variables
 ```bash
 # Database
@@ -501,16 +491,5 @@ This project is for educational purposes as part of a university assignment.
 **Shiri Barzilay**
 
 Developed with ❤️ and lots of ☕
-
----
-
-## 🙏 Acknowledgments
-
-- **Claude AI (Anthropic)** - For extensive development assistance
-- **FastAPI** - For the amazing Python web framework
-- **Streamlit** - For the beautiful UI framework
-- **Docker** - For containerization magic
-
----
 
 **Happy Reading! 📚✨**
