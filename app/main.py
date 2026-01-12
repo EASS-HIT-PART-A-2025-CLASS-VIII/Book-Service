@@ -74,7 +74,16 @@ redis_client = redis.from_url(REDIS_URL)
 
 @app.on_event("startup")
 def startup_event():
-    """Initialize database with initial books if empty"""
+    """Initialize database with initial books and create all tables"""
+    # Create all tables (including Users)
+    from app.db_models import Base
+    from app.user_models import UserDB
+    from app.database import engine
+    
+    Base.metadata.create_all(bind=engine)
+    print("✅ Database tables created!")
+    
+    # Initialize books if database is empty
     db = next(get_db())
     try:
         # Check if database is empty
@@ -100,7 +109,6 @@ def startup_event():
             print(f"✅ Added {len(INITIAL_BOOKS)} books to database!")
     finally:
         db.close()
-
 
 @app.get("/", tags=["Root"])
 def read_root() -> dict:
@@ -436,7 +444,7 @@ def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
         username=user_data.username,
         email=user_data.email,
         full_name=user_data.full_name,
-        hashed_password=hash_password(user_data.password),
+        hashed_password=get_password_hash(user_data.password),
         role="user",
         is_active=True
     )

@@ -4,6 +4,7 @@ import uuid
 import os
 import base64
 from pathlib import Path
+from auth_ui import initialize_session_state, require_login, show_user_info, logout_user
 
 # API configuration - use environment variable for Docker
 API_URL = os.getenv("API_URL", "http://localhost:8000")
@@ -50,6 +51,12 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+# Authentication
+initialize_session_state()
+require_login()
+# Show user info at top
+show_user_info()
+st.markdown("---")  # Separator line
 
 # Custom CSS
 page_style = """
